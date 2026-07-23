@@ -1,0 +1,21 @@
+# FastAPI web framework
+fastapi
+
+# ASGI server for running FastAPI
+uvicorn[standard]
+
+# Database ORM
+sqlalchemy>=2.0,<3.0
+
+# Database migrations
+alembic
+
+# Data validation and settings
+pydantic
+pydantic-settings
+
+# PostgreSQL driver
+psycopg[binary]
+
+# Environment variable loading
+python-dotenv

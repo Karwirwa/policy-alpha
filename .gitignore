@@ -1,0 +1,56 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# Testing and type-checking caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Alembic
+alembic/versions/__pycache__/
+alembic.ini
+
+# IDE/editor settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+.idea/
+
+# Frontend dependencies and build output
+node_modules/
+.next/
+build/
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Packaging / build artifacts
+*.egg-info/
+.pytype/
