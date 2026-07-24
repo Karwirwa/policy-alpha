@@ -24,6 +24,9 @@ class ProjectRepository:
             end_date=payload.get("end_date"),
             lead_company_id=payload.get("lead_company_id"),
             budget_id=payload.get("budget_id"),
+            source_page=payload.get("source_page"),
+            source_section=payload.get("source_section"),
+            source_paragraph=payload.get("source_paragraph"),
         )
         self.db.add(p)
         self.db.commit()

@@ -159,6 +159,12 @@ class Budget(Base, TimestampMixin):
     sector: Mapped[str] = mapped_column(String(255), nullable=True)
     summary: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Evidence fields linking this budget to a source document and location
+    source_document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    source_page: Mapped[int] = mapped_column(Integer, nullable=True)
+    source_section: Mapped[int] = mapped_column(Integer, nullable=True)
+    extraction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
     projects = relationship("Project", back_populates="budget", cascade="all, delete-orphan")
 
 
@@ -176,6 +182,11 @@ class Project(Base, TimestampMixin):
     end_date: Mapped[str] = mapped_column(String(50), nullable=True)
     lead_company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), nullable=True)
     budget_id: Mapped[str] = mapped_column(ForeignKey("budgets.id"), nullable=True)
+
+    # Evidence fields linking project to source document location
+    source_page: Mapped[int] = mapped_column(Integer, nullable=True)
+    source_section: Mapped[int] = mapped_column(Integer, nullable=True)
+    source_paragraph: Mapped[int] = mapped_column(Integer, nullable=True)
 
     lead_company = relationship("Company")
     budget = relationship("Budget", back_populates="projects")

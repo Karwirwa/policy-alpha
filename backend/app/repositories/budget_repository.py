@@ -24,6 +24,10 @@ class BudgetRepository:
             year=payload["year"],
             sector=payload.get("sector"),
             summary=payload.get("summary"),
+            source_document_id=payload.get("source_document_id"),
+            source_page=payload.get("source_page"),
+            source_section=payload.get("source_section"),
+            extraction_date=payload.get("extraction_date"),
         )
         self.db.add(b)
         self.db.commit()

@@ -19,3 +19,4 @@ psycopg[binary]
 
 # Environment variable loading
 python-dotenv
+pdfplumber
