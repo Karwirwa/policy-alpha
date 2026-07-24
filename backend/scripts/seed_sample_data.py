@@ -46,8 +46,15 @@ def main():
                 created = company_repo.create(name)
                 company_map[name] = created
 
-        # Insert budget
-        budget = budget_repo.insert(payload)
+        # Insert budget if not existing (program + year)
+        existing_budgets = budget_repo.find_by_year(payload["year"])
+        budget = None
+        for eb in existing_budgets:
+            if eb.program == payload["program"] and eb.country == payload["country"]:
+                budget = eb
+                break
+        if not budget:
+            budget = budget_repo.insert(payload)
 
         # Insert projects and link to companies and budget
         for p in payload.get("projects", []):
@@ -63,6 +70,17 @@ def main():
                 "lead_company_id": lead_company.id if lead_company else None,
                 "budget_id": budget.id,
             }
+            # skip if project with same project_id exists
+            existing = None
+            if proj_payload.get("project_id"):
+                existing = None
+                # naive lookup
+                for ex in project_repo.list(limit=1000):
+                    if ex.project_id == proj_payload.get("project_id"):
+                        existing = ex
+                        break
+            if existing:
+                continue
             project_repo.insert(proj_payload)
 
         print("Seed completed: budget, companies, and projects inserted.")
