@@ -142,12 +142,12 @@ def main():
     db = SessionLocal()
     try:
         country, created = get_or_create_country(db, name="Testland", code="TL")
-        print("✓ Country created" if created else "✓ Country found")
+        print("Country created" if created else "Country found")
 
         source_name = "Test Government Publications"
         source_url = "https://gov.example"
         source, screated = get_or_create_source(db, name=source_name, url=source_url, country_id=country.id)
-        print("✓ Source created" if screated else "✓ Source found")
+        print("Source created" if screated else "Source found")
 
         ingestion = DocumentIngestionService(db)
         doc = ingestion.ingest(parsed, government_source_id=source.id)
@@ -161,9 +161,9 @@ def main():
 
         companies, bill = create_companies_and_bill(db, doc, raw_text)
 
-        print("✓ Document stored")
+        print("Document stored")
         chunks = db.execute(select(Document).where(Document.id == doc.id)).scalars().first().chunks
-        print(f"✓ Number of chunks: {len(chunks)}")
+        print(f"Number of chunks: {len(chunks)}")
     finally:
         db.close()
 
