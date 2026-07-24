@@ -1,0 +1,42 @@
+{
+  "country": "Kenya",
+  "ministry": "Ministry of Housing",
+  "program": "Affordable Housing Programme",
+  "budget": 18500000000,
+  "currency": "KES",
+  "year": 2026,
+  "sector": "Housing and Urban Development",
+  "summary": "A national programme to expand affordable housing stock through public-private partnerships and targeted subsidies for low-income households.",
+  "projects": [
+    {
+      "project_id": "HAP-001",
+      "title": "Nairobi Affordable Estates Phase I",
+      "description": "Construction of mixed-income housing units and supporting infrastructure in Nairobi",
+      "amount": 8000000000,
+      "start_date": "2026-08-01",
+      "end_date": "2028-12-31",
+      "lead_company": "TransGlobal Constructions Ltd."
+    },
+    {
+      "project_id": "HAP-002",
+      "title": "Mombasa Coastal Housing Upgrade",
+      "description": "Rehabilitation and upgrade of coastal housing and access roads",
+      "amount": 4500000000,
+      "start_date": "2026-09-01",
+      "end_date": "2029-06-30",
+      "lead_company": "AeroRail Systems Inc."
+    }
+  ],
+  "companies": [
+    {
+      "name": "TransGlobal Constructions Ltd.",
+      "sector": "Construction",
+      "tin": "TG-998877"
+    },
+    {
+      "name": "AeroRail Systems Inc.",
+      "sector": "Infrastructure Engineering",
+      "tin": "AR-223344"
+    }
+  ]
+}

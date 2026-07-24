@@ -142,3 +142,40 @@ class AIAnalysis(Base, TimestampMixin):
 
     document = relationship("Document", back_populates="analyses")
     # company relationship intentionally omitted; can be added later if needed
+
+
+class Budget(Base, TimestampMixin):
+    """A simplified budget entity representing a programme-level allocation."""
+
+    __tablename__ = "budgets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    country: Mapped[str] = mapped_column(String(255), nullable=False)
+    ministry: Mapped[str] = mapped_column(String(255), nullable=False)
+    program: Mapped[str] = mapped_column(String(1000), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    sector: Mapped[str] = mapped_column(String(255), nullable=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=True)
+
+    projects = relationship("Project", back_populates="budget", cascade="all, delete-orphan")
+
+
+class Project(Base, TimestampMixin):
+    """A project funded under a budget/programme."""
+
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    project_id: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)
+    title: Mapped[str] = mapped_column(String(1000), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=True)
+    start_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    end_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    lead_company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), nullable=True)
+    budget_id: Mapped[str] = mapped_column(ForeignKey("budgets.id"), nullable=True)
+
+    lead_company = relationship("Company")
+    budget = relationship("Budget", back_populates="projects")
