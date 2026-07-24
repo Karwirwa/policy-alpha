@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,11 +13,19 @@ class Settings(BaseSettings):
     """
 
     app_name: str = "Policy Alpha"
-    environment: str = "development"
+    environment: Literal["development", "testing", "production"] = "development"
     database_url: str = "sqlite:///./policy_alpha.db"
     database_echo: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        """Ensure the database URL is not empty."""
+        if not value.strip():
+            raise ValueError("database_url cannot be empty")
+        return value
 
     @property
     def is_sqlite(self) -> bool:
