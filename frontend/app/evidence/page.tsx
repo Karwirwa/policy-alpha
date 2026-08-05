@@ -1,11 +1,14 @@
 import Header from '../../components/Header'
+import dynamic from 'next/dynamic'
+
+const EvidenceExplorer = dynamic(() => import('../../components/EvidenceExplorer'), { ssr: false })
 
 export default function EvidencePage() {
   return (
     <main>
       <Header />
-      <h2 className="text-2xl font-semibold">Evidence Explorer</h2>
-      <p className="text-gray-300 mt-4">Placeholder for evidence browsing and filtering.</p>
+      <h2 className="text-2xl font-semibold mb-4">Evidence Explorer</h2>
+      <EvidenceExplorer />
     </main>
   )
 }
