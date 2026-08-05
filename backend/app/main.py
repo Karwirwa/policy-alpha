@@ -27,6 +27,7 @@ app.include_router(__import__('app.api.crawler', fromlist=['router']).router)
 app.include_router(__import__('app.api.pipeline', fromlist=['router']).router)
 app.include_router(__import__('app.api.stats', fromlist=['router']).router)
 app.include_router(__import__('app.api.country', fromlist=['router']).router)
+app.include_router(__import__('app.api.portfolio_overview', fromlist=['router']).router)
 
 
 @app.on_event("startup")
