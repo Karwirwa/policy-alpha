@@ -25,6 +25,26 @@ def get_by_company(
     return repository.get_by_company(company_match.entity_id)
 
 
+@router.get("/project/{project_name}", response_model=list[EvidenceSchema])
+def get_by_project(
+    project_name: str,
+    repository: EvidenceRepository = Depends(get_repository),
+) -> list[EvidenceSchema]:
+    resolver = EntityResolutionService()
+    project_match = resolver.resolve_project(project_name)
+    if not project_match.entity_id:
+        return []
+    return repository.get_by_project(project_match.entity_id)
+
+
+@router.get("/latest", response_model=list[EvidenceSchema])
+def get_latest(
+    limit: int = 20,
+    repository: EvidenceRepository = Depends(get_repository),
+) -> list[EvidenceSchema]:
+    return repository.get_latest(limit)
+
+
 @router.get("/agency/{agency_name}", response_model=list[EvidenceSchema])
 def get_by_agency(
     agency_name: str,
@@ -66,3 +86,98 @@ def search_by_keyword(
     repository: EvidenceRepository = Depends(get_repository),
 ) -> list[EvidenceSchema]:
     return repository.search_by_keyword(keyword)
+
+
+@router.get("/list", response_model=list[EvidenceSchema])
+def list_evidence(
+    country: str | None = None,
+    agency: str | None = None,
+    company: str | None = None,
+    project: str | None = None,
+    tender: str | None = None,
+    confidence_min: float | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    keyword: str | None = None,
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[EvidenceSchema]:
+    """List evidence with optional filters. This endpoint supports frontend explorer queries.
+
+    Date filters expect ISO date strings (YYYY-MM-DD) and filter publication_date.
+    """
+    q = db.query(Evidence)
+
+    if country:
+        # resolve country name to id if necessary
+        from app.services.entity_resolution import EntityResolutionService
+
+        resolver = EntityResolutionService()
+        match = resolver.resolve_country(country)
+        if match.entity_id:
+            q = q.filter(Evidence.country_id == match.entity_id)
+        else:
+            # allow passing country id directly
+            q = q.filter(Evidence.country_id == country)
+
+    if agency:
+        match = EntityResolutionService().resolve_agency(agency)
+        if match.entity_id:
+            q = q.filter(Evidence.agency_id == match.entity_id)
+        else:
+            q = q.filter(Evidence.agency_id == agency)
+
+    if company:
+        match = EntityResolutionService().resolve_company(company)
+        if match.entity_id:
+            q = q.filter(Evidence.company_id == match.entity_id)
+        else:
+            q = q.filter(Evidence.company_id == company)
+
+    if project:
+        match = EntityResolutionService().resolve_project(project)
+        if match.entity_id:
+            q = q.filter(Evidence.project_id == match.entity_id)
+        else:
+            q = q.filter(Evidence.project_id == project)
+
+    if tender:
+        # tender id or name
+        q = q.filter(Evidence.procurement_id == tender)
+
+    if confidence_min is not None:
+        q = q.filter(Evidence.evidence_strength >= confidence_min)
+
+    if start_date:
+        try:
+            from datetime import datetime
+
+            sd = datetime.fromisoformat(start_date)
+            q = q.filter(Evidence.publication_date >= sd)
+        except Exception:
+            pass
+
+    if end_date:
+        try:
+            from datetime import datetime
+
+            ed = datetime.fromisoformat(end_date)
+            q = q.filter(Evidence.publication_date <= ed)
+        except Exception:
+            pass
+
+    if keyword:
+        normalized = keyword.strip().lower()
+        q = q.filter(
+            (func.lower(Evidence.title).contains(normalized))
+            | (func.lower(Evidence.summary).contains(normalized))
+            | (func.lower(Evidence.raw_text).contains(normalized))
+            # JSON contains for normalized keywords (may not be supported in all DBs)
+            | Evidence.normalized_keywords.contains([normalized])
+        )
+
+    q = q.order_by(Evidence.extracted_at.desc()).limit(limit).offset(offset)
+
+    results = q.all()
+    return results
