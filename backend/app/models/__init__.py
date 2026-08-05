@@ -6,6 +6,7 @@ from app.models.country import Country
 from app.models.document import Document
 from app.models.evidence import Evidence
 from app.models.entity_relationship import EntityRelationship, RelationshipType
+from app.models.opportunity import OpportunityScore, ScoreBreakdown
 from app.models.project import Project
 from app.models.tender import Tender
 
