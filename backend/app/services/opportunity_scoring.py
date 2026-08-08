@@ -166,8 +166,11 @@ class OpportunityScoringService:
             return 0.5
         # take first country's id and map
         country_id = evidence_countries[0][0]
-        mapping = {"country_kenya": 0.7, "country_usa": 0.9, "country_gbr": 0.85}
-        return mapping.get(country_id, 0.6)
+        from app.core.countries import normalize_country_id
+
+        normalized = normalize_country_id(country_id)
+        mapping = {"kenya": 0.7, "united_states": 0.9, "united_kingdom": 0.85}
+        return mapping.get(normalized, 0.6)
 
     def _make_breakdown(self, key: str, factor: str, weight: float, score: float, explanation: str) -> ScoreBreakdown:
         b = ScoreBreakdown(factor=factor, weight=weight, score=self._clamp(score), explanation=explanation)

@@ -15,6 +15,7 @@ from app.models.document import Document
 from app.models.opportunity import OpportunityScore
 from app.repositories.evidence_repository import EvidenceRepository
 from app.services.entity_resolution import EntityResolutionService
+from app.core.countries import get_country_config
 
 router = APIRouter(prefix="/api/v1/country", tags=["country"])
 
@@ -40,12 +41,28 @@ def _monthly_counts(db: Session, model, date_col_name: str, months: int = 12) ->
 
 @router.get("/{country_name}")
 def get_country_overview(country_name: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    from app.core.countries import normalize_country_id
+
     resolver = EntityResolutionService()
     match = resolver.resolve_country(country_name)
-    if not match.entity_id:
-        raise HTTPException(status_code=404, detail=f"Country '{country_name}' not found")
-
-    country_id = match.entity_id
+    if match.entity_id:
+        normalized = normalize_country_id(match.entity_id)
+        if normalized:
+            country_id = normalized
+            canonical_name = get_country_config(normalized).get("name")
+        else:
+            # If resolver produced an unknown id, fall back to configured list
+            cfg = get_country_config(country_name)
+            if not cfg:
+                raise HTTPException(status_code=404, detail=f"Country '{country_name}' not found")
+            country_id = cfg["id"]
+            canonical_name = cfg["name"]
+    else:
+        cfg = get_country_config(country_name)
+        if not cfg:
+            raise HTTPException(status_code=404, detail=f"Country '{country_name}' not found")
+        country_id = cfg["id"]
+        canonical_name = cfg["name"]
 
     # largest ministries (agencies) by evidence count in country
     agency_counts = (
@@ -148,7 +165,7 @@ def get_country_overview(country_name: str, db: Session = Depends(get_db)) -> Di
     map_projects = [{"project_id": p.id, "name": p.name} for p in db.query(Project).all()][:20]
 
     response = {
-        "country": {"id": country_id, "name": match.canonical_name or country_name},
+        "country": {"id": country_id, "name": canonical_name},
         "government_spending": [],
         "largest_ministries": [{"agency_id": a.id, "name": a.name, "evidence_count": c} for (a_id, a_name, c) in [(r[0], r[1], r[2]) for r in agency_counts]],
         "largest_projects": [{"project_id": p.id, "name": p.name, "evidence_count": c} for (p_id, p_name, c) in [(r[0], r[1], r[2]) for r in project_counts]],

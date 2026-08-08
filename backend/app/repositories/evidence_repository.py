@@ -9,6 +9,7 @@ from app.models.document import Document
 from app.models.evidence import Evidence
 from app.models.project import Project
 from app.models.tender import Tender
+from app.core.countries import get_country_config
 
 
 class EvidenceRepository:
@@ -63,7 +64,21 @@ class EvidenceRepository:
         self.db.flush()
 
     def _ensure_canonical_entities_exist(self, evidence: Evidence) -> None:
-        self._ensure_entity_exists(Country, evidence.country_id, name=evidence.country_id)
+        # Only create Country rows if the country is in the canonical configured list
+        # Normalize country ids to canonical form before creating/validating
+        from app.core.countries import normalize_country_id
+
+        normalized = None
+        if evidence.country_id:
+            normalized = normalize_country_id(evidence.country_id)
+        if normalized:
+            cfg = get_country_config(normalized)
+            self._ensure_entity_exists(Country, normalized, name=cfg.get("name") if cfg else normalized)
+        else:
+            # If an explicit country was provided but couldn't be normalized, treat as unsupported
+            if evidence.country_id:
+                raise ValueError(f"Unsupported country id: {evidence.country_id}")
+            # if no country_id provided, skip creation
         self._ensure_entity_exists(Agency, evidence.agency_id, name=evidence.agency_id)
         self._ensure_entity_exists(Company, evidence.company_id, name=evidence.company_id)
         self._ensure_entity_exists(Project, evidence.project_id, name=evidence.project_id)

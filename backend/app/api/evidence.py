@@ -5,6 +5,8 @@ from app.db.database import get_db
 from app.repositories.evidence_repository import EvidenceRepository
 from app.schemas.evidence import EvidenceSchema
 from app.services.entity_resolution import EntityResolutionService
+from app.models.evidence import Evidence
+from sqlalchemy import func
 
 router = APIRouter(prefix="/api/v1/evidence", tags=["evidence"])
 
@@ -66,7 +68,13 @@ def get_by_country(
     country_match = resolver.resolve_country(country_name)
     if not country_match.entity_id:
         return []
-    return repository.get_by_country(country_match.entity_id)
+    from app.core.countries import normalize_country_id
+
+    normalized = normalize_country_id(country_match.entity_id)
+    if not normalized:
+        # treat as not found
+        return []
+    return repository.get_by_country(normalized)
 
 
 @router.get("/document/{document_id}", response_model=list[EvidenceSchema])
@@ -116,7 +124,14 @@ def list_evidence(
         resolver = EntityResolutionService()
         match = resolver.resolve_country(country)
         if match.entity_id:
-            q = q.filter(Evidence.country_id == match.entity_id)
+            from app.core.countries import normalize_country_id
+
+            normalized = normalize_country_id(match.entity_id)
+            if normalized:
+                q = q.filter(Evidence.country_id == normalized)
+            else:
+                # fallback to using the raw parameter if resolver matched but normalization failed
+                q = q.filter(Evidence.country_id == country)
         else:
             # allow passing country id directly
             q = q.filter(Evidence.country_id == country)
