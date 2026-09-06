@@ -1,3 +1,5 @@
+from __future__ import annotations
+from app.core.countries import normalize_country_id
 from app.services.document_parser import DocumentParser, EvidenceDocument
 from app.services.evidence_extractor import EvidenceExtractor
 from app.services.evidence_strength import EvidenceStrengthCalculator
@@ -26,11 +28,13 @@ class EvidenceBuilder:
 
     def build(self, document: EvidenceDocument) -> Evidence:
         parsed = self.parser.parse(document)
-        linked_company = self._resolve_with_fallback(parsed.title, parsed.raw_text, self.resolver.resolve_company)
-        linked_agency = self._resolve_with_fallback(parsed.title, parsed.raw_text, self.resolver.resolve_agency)
-        linked_project = self._resolve_with_fallback(parsed.title, parsed.raw_text, self.resolver.resolve_project)
-        budget_match = self.resolver.resolve_budget(parsed.raw_text)
-        procurement_match = self.resolver.resolve_procurement(parsed.raw_text)
+        normalized_country_id = normalize_country_id(parsed.country_id) if parsed.country_id else None
+
+        linked_company = self._resolve_with_fallback(parsed.title, parsed.raw_text, lambda text: self.resolver.resolve_company(text, country_code=normalized_country_id))
+        linked_agency = self._resolve_with_fallback(parsed.title, parsed.raw_text, lambda text: self.resolver.resolve_agency(text, country_code=normalized_country_id))
+        linked_project = self._resolve_with_fallback(parsed.title, parsed.raw_text, lambda text: self.resolver.resolve_project(text, country_code=normalized_country_id))
+        budget_match = self.resolver.resolve_budget(parsed.raw_text, country_code=normalized_country_id)
+        procurement_match = self.resolver.resolve_procurement(parsed.raw_text, country_code=normalized_country_id)
         metadata = self.metadata_extractor.extract(
             raw_text=parsed.raw_text,
             entity_matches={
@@ -59,6 +63,8 @@ class EvidenceBuilder:
             raw_text=parsed.raw_text,
             source_reference=parsed.source_reference,
             supporting_references=parsed.metadata.get("supporting_references") if parsed.metadata else None,
+            publication_date=parsed.metadata.get("publication_date") if parsed.metadata else None,
+            country_code=normalized_country_id,
         )
         return evidence
 

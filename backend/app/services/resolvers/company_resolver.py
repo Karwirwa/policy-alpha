@@ -38,7 +38,8 @@ class CompanyResolver(BaseResolver):
                 return EntityMatch(entity_id=entry["id"], canonical_name=entry["name"], match_score=0.9)
         return EntityMatch(entity_id=None, canonical_name=None, match_score=0.0)
 
-    def resolve(self, text: str) -> EntityMatch:
+    def resolve(self, text: str, country_code: str | None = None) -> EntityMatch:
+        # country_code may be used in the future to prefer local matches
         exact = self._resolve_name(text)
         if exact.entity_id:
             return exact

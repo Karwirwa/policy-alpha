@@ -9,7 +9,7 @@ from app.models.document import Document
 from app.models.evidence import Evidence
 from app.models.project import Project
 from app.models.tender import Tender
-from app.core.countries import get_country_config
+from app.core.countries import get_country_config, normalize_country_id
 
 
 class EvidenceRepository:
@@ -19,9 +19,29 @@ class EvidenceRepository:
         self.db = db
 
     def create(self, evidence: Evidence) -> Evidence:
+        if evidence.country_id:
+            normalized_country_id = normalize_country_id(evidence.country_id)
+            if normalized_country_id:
+                evidence.country_id = normalized_country_id
+
         existing = self.get_by_document_hash(evidence.document_hash)
         if existing:
             return existing
+
+        # Additional duplicate detection: same title + company + publication_date
+        if evidence.title and evidence.company_id and evidence.publication_date:
+            dup = (
+                self.db.query(Evidence)
+                .filter(
+                    Evidence.title == evidence.title,
+                    Evidence.company_id == evidence.company_id,
+                    Evidence.publication_date == evidence.publication_date,
+                )
+                .order_by(Evidence.id)
+                .first()
+            )
+            if dup:
+                return dup
 
         self._ensure_document_exists(evidence)
         self._ensure_canonical_entities_exist(evidence)
@@ -79,6 +99,10 @@ class EvidenceRepository:
             if evidence.country_id:
                 raise ValueError(f"Unsupported country id: {evidence.country_id}")
             # if no country_id provided, skip creation
+
+
+        # Other entities (agency/company/project/budget/tender) may be auto-created by ingestion
+        # keeping existing behavior for now to avoid breaking contracts.
         self._ensure_entity_exists(Agency, evidence.agency_id, name=evidence.agency_id)
         self._ensure_entity_exists(Company, evidence.company_id, name=evidence.company_id)
         self._ensure_entity_exists(Project, evidence.project_id, name=evidence.project_id)
@@ -86,18 +110,38 @@ class EvidenceRepository:
         self._ensure_entity_exists(Tender, evidence.procurement_id, name=evidence.procurement_id)
 
     def get_by_document_hash(self, document_hash: str) -> Evidence | None:
-        return (
+        existing = (
             self.db.query(Evidence)
             .filter(Evidence.document_hash == document_hash)
             .order_by(Evidence.id)
             .first()
         )
+        if existing:
+            return existing
+        # No fallback to title-based matching — document_hash is the canonical duplicate key.
+        return None
 
     def get_by_company(self, company_id: str) -> list[Evidence]:
         return (
             self.db.query(Evidence)
             .filter(Evidence.company_id == company_id)
             .order_by(Evidence.id)
+            .all()
+        )
+
+    def get_by_project(self, project_id: str) -> list[Evidence]:
+        return (
+            self.db.query(Evidence)
+            .filter(Evidence.project_id == project_id)
+            .order_by(Evidence.id)
+            .all()
+        )
+
+    def get_latest(self, limit: int = 50) -> list[Evidence]:
+        return (
+            self.db.query(Evidence)
+            .order_by(Evidence.extracted_at.desc())
+            .limit(limit)
             .all()
         )
 

@@ -37,7 +37,14 @@ class ProjectResolver(BaseResolver):
                 return EntityMatch(entity_id=entry["id"], canonical_name=entry["name"], match_score=0.9)
         return EntityMatch(entity_id=None, canonical_name=None, match_score=0.0)
 
-    def resolve(self, text: str) -> EntityMatch:
+    def resolve(self, text: str, country_code: str | None = None) -> EntityMatch:
+        # Cross-country normalization: detect generic infrastructure-related terms and map to a canonical infrastructure project
+        normalized = self.normalize_text(text)
+        infra_keywords = ["infrastructure project", "road project", "road expansion", "highway expansion", "bridge project", "transport project"]
+        for kw in infra_keywords:
+            if kw in normalized:
+                return EntityMatch(entity_id="project_infrastructure", canonical_name="Infrastructure Project", match_score=0.8)
+
         exact = self._resolve_name(text)
         if exact.entity_id:
             return exact

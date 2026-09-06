@@ -22,6 +22,10 @@ class EvidenceSchema(BaseModel):
     section: str | None
     document_hash: str
     connector_name: str | None
+    government_level: str | None = None
+    language: str | None = None
+    publication_date: datetime | None = None
+    last_verified: datetime | None = None
     evidence_strength: float
     source_reference: str
     extracted_at: datetime
