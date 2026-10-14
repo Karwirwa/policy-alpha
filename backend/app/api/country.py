@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+from collections import Counter
+import json as _json
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,7 +11,6 @@ from app.db.database import get_db
 from app.models.agency import Agency
 from app.models.company import Company
 from app.models.project import Project
-from app.models.tender import Tender
 from app.models.evidence import Evidence
 from app.models.document import Document
 from app.models.opportunity import OpportunityScore
@@ -64,27 +65,53 @@ def get_country_overview(country_name: str, db: Session = Depends(get_db)) -> Di
         country_id = cfg["id"]
         canonical_name = cfg["name"]
 
-    # largest ministries (agencies) by evidence count in country
-    agency_counts = (
-        db.query(Agency.id, Agency.name, func.count(Evidence.id).label("evidence_count"))
-        .join(Evidence, Evidence.agency_id == Agency.id)
+    # Total evidence count for this country
+    evidence_count = (
+        db.query(func.count(Evidence.id))
         .filter(Evidence.country_id == country_id)
-        .group_by(Agency.id)
-        .order_by(func.count(Evidence.id).desc())
-        .limit(8)
+        .scalar() or 0
+    )
+    evidence_rows = (
+        db.query(Evidence)
+        .filter(Evidence.country_id == country_id)
+        .order_by(Evidence.extracted_at.desc())
         .all()
     )
 
-    # largest projects by evidence count
-    project_counts = (
-        db.query(Project.id, Project.name, func.count(Evidence.id).label("evidence_count"))
-        .join(Evidence, Evidence.project_id == Project.id)
-        .filter(Evidence.country_id == country_id)
-        .group_by(Project.id)
-        .order_by(func.count(Evidence.id).desc())
-        .limit(8)
-        .all()
-    )
+    ministry_counter = Counter()
+    for e in evidence_rows:
+        raw = e.summary or ""
+        try:
+            s = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+        except Exception:
+            s = {}
+        name = (
+            s.get("pe_name")
+            or s.get("procuring_entity")
+            or s.get("organization")
+            or s.get("buyer")
+            or s.get("category")
+        )
+        if not name:
+            cat_id = s.get("procurement_category_id")
+            cat_map = {1: "Goods", 2: "Works", 3: "Services", 4: "Consultancy"}
+            name = cat_map.get(cat_id, "Government Tenders")
+        if name:
+            ministry_counter[name] += 1
+    largest_ministries = [
+        {"agency_id": None, "name": n, "evidence_count": c}
+        for n, c in ministry_counter.most_common(8)
+    ]
+
+    project_counter = Counter()
+    for e in evidence_rows:
+        name = e.title or e.document_id
+        if name:
+            project_counter[name] += 1
+    largest_projects = [
+        {"project_id": None, "name": n, "evidence_count": c}
+        for n, c in project_counter.most_common(8)
+    ]
 
     # top companies: join opportunity_score and evidence by company where evidence.country_id
     top_companies = []
@@ -105,16 +132,14 @@ def get_country_overview(country_name: str, db: Session = Depends(get_db)) -> Di
     except Exception:
         top_companies = []
 
-    # recent tenders and procurement: use Tender and Evidence with procurement_id
-    recent_tenders = (
-        db.query(Tender.id, Tender.name)
-        .join(Evidence, Evidence.procurement_id == Tender.id)
-        .filter(Evidence.country_id == country_id)
-        .order_by(Evidence.extracted_at.desc())
-        .limit(10)
-        .all()
-    )
-    recent_tenders_list = [{"tender_id": t.id, "name": t.name} for t in recent_tenders]
+    recent_tenders_list = []
+    for e in evidence_rows[:10]:
+        recent_tenders_list.append({
+            "tender_id": e.document_id or str(e.id),
+            "name": e.title or e.document_id or "Untitled",
+            "source_reference": e.source_reference,
+            "extracted_at": e.extracted_at.isoformat() if e.extracted_at else None,
+        })
 
     # opportunity score aggregate: average of latest opportunity scores for companies with evidence in country
     avg_opportunity = None
@@ -166,9 +191,10 @@ def get_country_overview(country_name: str, db: Session = Depends(get_db)) -> Di
 
     response = {
         "country": {"id": country_id, "name": canonical_name},
+        "evidence_count": evidence_count,
         "government_spending": [],
-        "largest_ministries": [{"agency_id": a.id, "name": a.name, "evidence_count": c} for (a_id, a_name, c) in [(r[0], r[1], r[2]) for r in agency_counts]],
-        "largest_projects": [{"project_id": p.id, "name": p.name, "evidence_count": c} for (p_id, p_name, c) in [(r[0], r[1], r[2]) for r in project_counts]],
+        "largest_ministries": largest_ministries,
+        "largest_projects": largest_projects,
         "top_companies": top_companies,
         "recent_tenders": recent_tenders_list,
         "recent_procurement": [],

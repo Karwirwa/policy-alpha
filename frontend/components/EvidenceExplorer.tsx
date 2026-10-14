@@ -9,7 +9,7 @@ import 'reactflow/dist/style.css'
 
 export default function EvidenceExplorer() {
   const [keyword, setKeyword] = useState('')
-  const [country, setCountry] = useState('')
+  const [country, setCountry] = useState('kenya')
   const [agency, setAgency] = useState('')
   const [company, setCompany] = useState('')
   const [project, setProject] = useState('')
@@ -44,9 +44,9 @@ export default function EvidenceExplorer() {
     return parts.length ? '?' + parts.join('&') : ''
   }, [params])
 
-  const { data, isLoading, error } = useQuery(['evidenceList', qs], () => fetcher(`/api/v1/evidence/list${qs}`))
+  const { data, isLoading, error } = useQuery<any[]>({ queryKey: ['evidenceList', qs], queryFn: () => fetcher(`/api/v1/evidence/list${qs}`) })
 
-  const onSearch = useCallback((e) => { e.preventDefault(); setOffset(0); }, [])
+  const onSearch = useCallback((e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); setOffset(0); }, [])
 
   const nodes: Node[] = useMemo(() => {
     if (!selectedDoc) return []
@@ -197,7 +197,7 @@ export default function EvidenceExplorer() {
 }
 
 function DocEvidenceList({ documentId }: { documentId: string }) {
-  const { data, isLoading } = useQuery(['docEvidence', documentId], () => fetcher(`/api/v1/evidence/document/${encodeURIComponent(documentId)}`))
+  const { data, isLoading } = useQuery<any[]>({ queryKey: ['docEvidence', documentId], queryFn: () => fetcher(`/api/v1/evidence/document/${encodeURIComponent(documentId)}`) })
   if (isLoading) return <li className="text-gray-400">Loading supporting evidence...</li>
   if (!data || data.length === 0) return <li className="text-gray-400">No supporting evidence</li>
   return (

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -5,8 +7,14 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_WORKTREE_ROOT = _BACKEND_DIR.parent
+_DB_FILE = _WORKTREE_ROOT / "policy_alpha.db"
+_DEFAULT_DATABASE_URL = "sqlite:///./policy_alpha.db"
+DATABASE_URL = settings.database_url if settings.database_url != _DEFAULT_DATABASE_URL else f"sqlite:///{_DB_FILE.as_posix()}"
+
 engine = create_engine(
-    settings.database_url,
+    DATABASE_URL,
     connect_args=settings.sqlite_connect_args if settings.is_sqlite else None,
     echo=settings.database_echo,
 )

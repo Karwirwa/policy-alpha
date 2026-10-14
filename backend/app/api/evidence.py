@@ -107,6 +107,7 @@ def list_evidence(
     start_date: str | None = None,
     end_date: str | None = None,
     keyword: str | None = None,
+    include_illustrative: bool = True,
     limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -116,6 +117,9 @@ def list_evidence(
     Date filters expect ISO date strings (YYYY-MM-DD) and filter publication_date.
     """
     q = db.query(Evidence)
+
+    if not include_illustrative:
+        q = q.filter(Evidence.verification_status != "illustrative")
 
     if country:
         # resolve country name to id if necessary

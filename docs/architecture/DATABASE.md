@@ -181,3 +181,14 @@ In the long term, vector search can complement traditional relational queries by
 ## Architectural Summary
 
 Policy Alpha's database architecture is designed as a durable and extensible relational foundation for an AI-powered intelligence platform. It preserves provenance, supports structured analysis of government activity, and leaves room for future semantic retrieval and richer automation workflows. The design balances immediate clarity with long-term flexibility, ensuring that the system can evolve without undermining the integrity of its data model.
+
+## Applying the evidence verification column in local SQLite
+
+The milestone worktree does not currently include an Alembic configuration. After adding `verification_status` to the evidence model, update an existing SQLite database before running the application against it:
+
+```powershell
+sqlite3 path\to\policy_alpha.db "ALTER TABLE evidence ADD COLUMN verification_status VARCHAR(32) NOT NULL DEFAULT 'unverified';"
+sqlite3 path\to\policy_alpha.db "CREATE INDEX IF NOT EXISTS ix_evidence_verification_status ON evidence (verification_status);"
+```
+
+Replace `path\to\policy_alpha.db` with the SQLite database configured for the worktree. The default is the worktree-root `policy_alpha.db`. New databases created from the SQLAlchemy metadata already include this column and index.

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./policy_alpha.db"
     database_echo: bool = False
+    demo_seed_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

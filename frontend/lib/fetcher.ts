@@ -1,14 +1,16 @@
 /**
- * Typed fetch helper that uses NEXT_PUBLIC_API_BASE as the API base URL.
+ * Typed fetch helper that uses NEXT_PUBLIC_API_URL as the API base URL.
  *
  * Example:
  * import fetcher from 'frontend/lib/fetcher'
  * const data = await fetcher<MyType>('/items')
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
 
 export async function fetcher<T = unknown>(path: string, init?: RequestInit): Promise<T> {
-  const url = path.startsWith('http') ? path : `${API_BASE.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+  const url = path.startsWith('http')
+    ? path
+    : `${API_BASE.replace(/\/$/, '')}/${path.replace(/^\/api\/v1\/?/, '').replace(/^\//, '')}`
 
   const mergedHeaders = {
     'Content-Type': 'application/json',

@@ -29,6 +29,9 @@ class Evidence(Base, TimestampMixin):
     section: Mapped[str | None] = mapped_column(String(128), nullable=True)
     document_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     connector_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    verification_status: Mapped[str] = mapped_column(
+        String(32), default="unverified", nullable=False, index=True
+    )
     government_level: Mapped[str | None] = mapped_column(String(64), nullable=True)
     language: Mapped[str | None] = mapped_column(String(16), nullable=True)
     publication_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

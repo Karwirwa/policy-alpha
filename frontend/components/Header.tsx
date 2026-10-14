@@ -1,3 +1,4 @@
+'use client'
 import Link from 'next/link'
 
 export default function Header() {
@@ -11,8 +12,9 @@ export default function Header() {
         </div>
       </div>
 
-      <nav className="flex items-center space-x-4">
+      <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link href="/dashboard" className="text-sm text-gray-200 hover:underline">Dashboard</Link>
+        <Link href="/kenya" className="text-sm text-gray-200 hover:underline">Kenya</Link>
         <Link href="/graph" className="text-sm text-gray-200 hover:underline">Graph</Link>
         <Link href="/portfolio" className="text-sm text-gray-200 hover:underline">Portfolio</Link>
       </nav>

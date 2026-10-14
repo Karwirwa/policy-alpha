@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -15,11 +15,11 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { useQuery } from '@tanstack/react-query'
 import { fetcher } from '../lib/fetcher'
-import { Button } from './ui/Button'
-import { Input } from './ui/Input'
-import { Select } from './ui/Select'
+import { Button } from './Button'
+import { Input } from './Input'
+import { Select } from './Select'
 import { motion } from 'framer-motion'
-import { IconBuilding, IconGovernment, IconBox, IconFileText, IconStack } from 'lucide-react'
+import { Building, Users, Box, FileText, Layers } from 'lucide-react'
 
 type GraphResponse = {
   entity: { entity_type: string; entity_id: string; entity_name: string }
@@ -42,30 +42,33 @@ function nodeColor(ntype: string) {
 function NodeIcon({ type }: { type: string }) {
   switch (type) {
     case 'company':
-      return <IconBuilding className="w-5 h-5" />
+      return <Building className="w-5 h-5" />
     case 'agency':
-      return <IconGovernment className="w-5 h-5" />
+      return <Users className="w-5 h-5" />
     case 'project':
-      return <IconStack className="w-5 h-5" />
+      return <Layers className="w-5 h-5" />
     case 'budget':
-      return <IconBox className="w-5 h-5" />
+      return <Box className="w-5 h-5" />
     case 'tender':
-      return <IconFileText className="w-5 h-5" />
+      return <FileText className="w-5 h-5" />
     case 'evidence':
-      return <IconFileText className="w-5 h-5" />
+      return <FileText className="w-5 h-5" />
     default:
-      return <IconBuilding className="w-5 h-5" />
+      return <Building className="w-5 h-5" />
   }
 }
 
+const nodeTypes = {}
+const edgeTypes = {}
+
 export default function RelationshipGraph() {
-  const [queryType, setQueryType] = useState<'company' | 'agency' | 'project'>('company')
-  const [queryText, setQueryText] = useState('')
+  const [queryType, setQueryType] = useState<'country' | 'company' | 'agency' | 'project'>('country')
+  const [queryText, setQueryText] = useState('kenya')
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [viewportInitialized, setViewportInitialized] = useState(false)
-  const { fitView, setCenter } = useReactFlow()
+  const flowRef = useRef<any>(null)
 
   const buildGraph = useCallback((data: GraphResponse) => {
     if (!data) return
@@ -141,32 +144,110 @@ export default function RelationshipGraph() {
     setNodes(newNodes)
     setEdges(newEdges)
 
-    // center view after a short delay to ensure nodes mounted
-    setTimeout(() => {
-      try {
-        fitView({ padding: 0.2 })
-        setViewportInitialized(true)
-      } catch (e) {
-        // ignore
+    // Flow container will auto-fit when nodes change; nothing else here
+  }, [setViewportInitialized])
+
+  // expose a panToNode helper that delegates to the FlowContainer via ref
+  const panToNode = useCallback((nodeId: string) => {
+    try {
+      if (flowRef.current && typeof flowRef.current.panToNode === 'function') {
+        flowRef.current.panToNode(nodeId)
       }
-    }, 200)
-  }, [fitView, setCenter, setViewportInitialized])
+    } catch (e) {}
+  }, [])
+
+  // child Flow container that owns the useReactFlow hook and invokes fitView / setCenter
+  const FlowContainer = React.forwardRef(({ nodes, edges, onNodeClick }: { nodes: Node[]; edges: Edge[]; onNodeClick: any }, ref) => {
+    const { fitView, setCenter } = useReactFlow()
+    const [didInit, setDidInit] = useState(false)
+
+    useEffect(() => {
+      if (!didInit && nodes && nodes.length > 0) {
+        try {
+          fitView({ padding: 0.2 })
+        } catch (e) {}
+        setDidInit(true)
+      }
+    }, [nodes, didInit, fitView])
+
+    React.useImperativeHandle(ref, () => ({
+      panToNode: (nodeId: string) => {
+        const n = nodes?.find((x) => x.id === nodeId)
+        if (n && n.position) {
+          try {
+            setCenter(n.position.x, n.position.y, { zoom: 1.2 })
+          } catch (e) {}
+        }
+      },
+      fitView: () => {
+        try { fitView({ padding: 0.2 }) } catch (e) {}
+      }
+    }), [nodes, fitView, setCenter])
+
+    return (
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeClick={(ev, node) => { if (onNodeClick) onNodeClick(ev, node); try { setCenter(node.position.x, node.position.y, { zoom: 1.2 }) } catch (e) {} }}
+        fitView
+        attributionPosition="bottom-left"
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        minZoom={0.2}
+        maxZoom={2.5}
+        panOnDrag
+        zoomOnScroll
+      >
+        <MiniMap nodeColor={(n) => nodeColor((n.data as any)?.type)} />
+        <Controls />
+        <Background color="#0b1220" gap={16} />
+      </ReactFlow>
+    )
+  })
 
   const fetchGraph = useCallback(async () => {
     if (!queryText) return
+    if (queryType === 'country') {
+      const evidence = await fetcher<any[]>(`/api/v1/evidence/list?country=${encodeURIComponent(queryText)}&limit=50`)
+      const entityFields = [
+        ['company', 'company_id'],
+        ['agency', 'agency_id'],
+        ['project', 'project_id'],
+        ['tender', 'procurement_id'],
+      ] as const
+      const connections = evidence.flatMap((item: any) => entityFields.flatMap(([type, field]) => {
+        const id = item[field]
+        return id ? [{
+          other_entity_type: type,
+          other_entity_id: id,
+          other_entity_name: id,
+          relationship_type: 'supported_by',
+          confidence: item.evidence_strength,
+          evidence: { id: item.id, title: item.title, source_reference: item.source_reference },
+        }] : []
+      }))
+      buildGraph({
+        entity: { entity_type: 'country', entity_id: queryText, entity_name: queryText },
+        connections,
+      })
+      return
+    }
     const path = `/api/v1/graph/${queryType}/${encodeURIComponent(queryText)}`
-    const data = await fetcher<GraphResponse>(path)
-    buildGraph(data)
+    try {
+      const data = await fetcher<GraphResponse>(path)
+      buildGraph(data)
+    } catch (err: any) {
+      // If 404 or other, clear nodes/edges and show no crash
+      setNodes([])
+      setEdges([])
+    }
   }, [queryType, queryText, buildGraph])
 
-  // handle node click
+  // handle node click (selection only) - centering handled inside FlowContainer
   const onNodeClick = useCallback((event: any, node: Node) => {
     setSelectedNode(node)
-    // center on node
-    try {
-      setCenter(node.position.x, node.position.y, { zoom: 1.2 })
-    } catch (e) {}
-  }, [setCenter])
+  }, [])
 
   // search handlers
   const onSubmit = useCallback((e: React.FormEvent) => {
@@ -174,15 +255,12 @@ export default function RelationshipGraph() {
     fetchGraph().catch(() => {})
   }, [fetchGraph])
 
-  // helper to pan to node
-  const panToNode = useCallback((nodeId: string) => {
-    const n = nodes.find((x) => x.id === nodeId)
-    if (n) {
-      try {
-        setCenter(n.position.x, n.position.y, { zoom: 1.2 })
-      } catch (e) {}
-    }
-  }, [nodes, setCenter])
+  useEffect(() => {
+    fetchGraph().catch(() => {})
+  }, [fetchGraph])
+
+  // helper to pan to node: delegate to FlowContainer via ref
+  // implemented above as panToNode
 
   // build initial empty graph
   useEffect(() => {
@@ -195,6 +273,7 @@ export default function RelationshipGraph() {
         <form onSubmit={onSubmit} className="flex items-center gap-2 w-full">
           <div className="flex items-center gap-2">
             <select value={queryType} onChange={(e) => setQueryType(e.target.value as any)} className="bg-transparent border border-gray-700 px-2 py-1 rounded">
+              <option value="country">Country</option>
               <option value="company">Company</option>
               <option value="agency">Agency</option>
               <option value="project">Project</option>
@@ -218,22 +297,7 @@ export default function RelationshipGraph() {
 
       <div className="flex gap-4 h-full">
         <div className="flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodeClick={onNodeClick}
-            fitView
-            attributionPosition="bottom-left"
-            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-            minZoom={0.2}
-            maxZoom={2.5}
-            panOnDrag
-            zoomOnScroll
-          >
-            <MiniMap nodeColor={(n) => nodeColor((n.data as any)?.type)} />
-            <Controls />
-            <Background color="#0b1220" gap={16} />
-          </ReactFlow>
+          <FlowContainer ref={flowRef} nodes={nodes} edges={edges} onNodeClick={onNodeClick} />
         </div>
 
         <aside className="w-80">

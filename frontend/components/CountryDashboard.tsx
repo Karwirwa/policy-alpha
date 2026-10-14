@@ -8,11 +8,20 @@ import Header from './Header'
 import { motion } from 'framer-motion'
 
 export default function CountryDashboard({ country }: { country: string }) {
-  const { data, isLoading, error } = useQuery(['country', country], () => fetcher(`/api/v1/country/${encodeURIComponent(country)}`))
+  const { data, isLoading, error } = useQuery<any>({ queryKey: ['country', country], queryFn: () => fetcher(`/api/v1/countries/${encodeURIComponent(country)}`) })
+  const { data: evidence = [], isLoading: evidenceLoading } = useQuery<any[]>({
+    queryKey: ['countryEvidence', country],
+    queryFn: () => fetcher(`/api/v1/evidence/list?country=${encodeURIComponent(country)}&limit=50`),
+  })
 
   if (isLoading) return <div className="p-4"><div className="h-6 bg-gray-800 rounded w-1/3 animate-pulse mb-3" /><div className="h-4 bg-gray-800 rounded w-full animate-pulse" /></div>
   if (error) return <div className="p-4 text-red-400">Error loading country data</div>
   if (!data) return <div className="p-4 text-gray-400">No data</div>
+
+  const ministries = data.top_ministries ?? data.largest_ministries ?? []
+  const projects = data.largest_projects ?? []
+  const companies = data.most_active_companies ?? data.top_companies ?? []
+  const documents = evidence.filter((item: any) => item.document_id).slice(0, 12)
 
   return (
     <div>
@@ -27,11 +36,11 @@ export default function CountryDashboard({ country }: { country: string }) {
         </div>
         <div className="card-glass p-4 rounded-lg">
           <div className="text-sm text-gray-300">Recent Documents</div>
-          <div className="text-xl font-semibold mt-2">{data.recent_documents.length}</div>
+          <div className="text-xl font-semibold mt-2">{data.evidence_count ?? evidence.length}</div>
         </div>
         <div className="card-glass p-4 rounded-lg">
           <div className="text-sm text-gray-300">Top Companies</div>
-          <div className="text-xl font-semibold mt-2">{data.top_companies.length}</div>
+          <div className="text-xl font-semibold mt-2">{companies.length}</div>
         </div>
       </div>
 
@@ -80,8 +89,8 @@ export default function CountryDashboard({ country }: { country: string }) {
         <div className="card-glass p-4 rounded-lg">
           <h4 className="font-medium mb-2">Largest Ministries</h4>
           <ul className="text-sm text-gray-200 space-y-2">
-            {data.largest_ministries && data.largest_ministries.length > 0 ? data.largest_ministries.map((m: any) => (
-              <li key={m.agency_id} className="flex justify-between"><span>{m.name}</span><span className="text-gray-400">{m.evidence_count}</span></li>
+            {ministries.length > 0 ? ministries.map((m: any) => (
+              <li key={m.agency_id ?? m.id} className="flex justify-between"><span>{m.name}</span><span className="text-gray-400">{m.evidence_count ?? ''}</span></li>
             )) : <li className="text-gray-400">No ministries found</li>}
           </ul>
         </div>
@@ -89,8 +98,8 @@ export default function CountryDashboard({ country }: { country: string }) {
         <div className="card-glass p-4 rounded-lg">
           <h4 className="font-medium mb-2">Largest Projects</h4>
           <ul className="text-sm text-gray-200 space-y-2">
-            {data.largest_projects && data.largest_projects.length > 0 ? data.largest_projects.map((p: any) => (
-              <li key={p.project_id} className="flex justify-between"><span>{p.name}</span><span className="text-gray-400">{p.evidence_count}</span></li>
+            {projects.length > 0 ? projects.map((p: any) => (
+              <li key={p.project_id ?? p.id} className="flex justify-between"><span>{p.name}</span><span className="text-gray-400">{p.evidence_count ?? ''}</span></li>
             )) : <li className="text-gray-400">No projects found</li>}
           </ul>
         </div>
@@ -98,8 +107,8 @@ export default function CountryDashboard({ country }: { country: string }) {
         <div className="card-glass p-4 rounded-lg">
           <h4 className="font-medium mb-2">Top Companies</h4>
           <ul className="text-sm text-gray-200 space-y-2">
-            {data.top_companies && data.top_companies.length > 0 ? data.top_companies.map((c: any) => (
-              <li key={c.company_id} className="flex justify-between"><a href={`/company/${c.company_id}`} className="text-indigo-300 hover:underline">{c.company_id}</a><span className="text-gray-400">{Math.round(c.score)}</span></li>
+            {companies.length > 0 ? companies.map((c: any) => (
+              <li key={c.company_id ?? c.id} className="flex justify-between"><a href={`/company/${c.company_id ?? c.id}`} className="text-indigo-300 hover:underline">{c.name ?? c.company_id ?? c.id}</a><span className="text-gray-400">{c.score != null ? Math.round(c.score) : ''}</span></li>
             )) : <li className="text-gray-400">No top companies</li>}
           </ul>
         </div>
@@ -108,8 +117,8 @@ export default function CountryDashboard({ country }: { country: string }) {
       <div className="card-glass p-4 rounded-lg mb-6">
         <h4 className="font-medium mb-2">Recent Government Documents</h4>
         <ul className="text-sm text-gray-200 space-y-2">
-          {data.recent_documents && data.recent_documents.length > 0 ? data.recent_documents.map((d: any) => (
-            <li key={d.id}><a href={d.source_reference} target="_blank" rel="noreferrer" className="text-indigo-300 hover:underline">{d.name}</a></li>
+          {evidenceLoading ? <li className="text-gray-400">Loading evidence...</li> : documents.length > 0 ? documents.map((d: any) => (
+            <li key={d.id}><a href={d.source_reference} target="_blank" rel="noreferrer" className="text-indigo-300 hover:underline">{d.title}</a></li>
           )) : <li className="text-gray-400">No recent documents</li>}
         </ul>
       </div>

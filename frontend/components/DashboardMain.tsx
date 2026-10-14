@@ -5,23 +5,27 @@ import { useQuery } from '@tanstack/react-query'
 import { fetcher } from '../lib/fetcher'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
 import { motion } from 'framer-motion'
+import CrawlerDashboard from './CrawlerDashboard'
 
 function KpiCard({ title, value, loading, error }: { title: string; value: any; loading?: boolean; error?: any }) {
   if (loading) return <div className="card-glass p-4 rounded-lg animate-pulse">Loading...</div>
-  if (error) return <div className="card-glass p-4 rounded-lg text-red-400">Error</div>
+  // Treat empty successful responses (0 or []) as valid. Show error only when value is undefined/null and error is present
+  if (error && (value === undefined || value === null)) return <div className="card-glass p-4 rounded-lg text-red-400">Error</div>
   return (
     <div className="card-glass p-4 rounded-lg">
       <div className="text-sm text-gray-300">{title}</div>
-      <div className="text-2xl font-semibold mt-2">{value}</div>
+      <div className="text-2xl font-semibold mt-2">{value ?? '—'}</div>
     </div>
   )
 }
 
 export default function DashboardMain() {
-  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery(['stats'], () => fetcher('/api/v1/stats'))
-  const { data: topOp, isLoading: topLoading } = useQuery(['topOpportunities'], () => fetcher('/api/v1/opportunity/top'))
-  const { data: latestEvidence, isLoading: evidenceLoading } = useQuery(['latestEvidence'], () => fetcher('/api/v1/evidence/latest'))
-  const { data: crawlerStatus, isLoading: crawlerLoading } = useQuery(['crawlerStatus'], () => fetcher('/api/v1/crawler/status'))
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<any>({ queryKey: ['stats'], queryFn: () => fetcher('/api/v1/stats') })
+  const { data: topOp, isLoading: topLoading, error: topError } = useQuery<any[]>({ queryKey: ['topOpportunities'], queryFn: () => fetcher('/api/v1/opportunity/top') })
+  const { data: kenyaProfile } = useQuery<any>({ queryKey: ['country', 'kenya'], queryFn: () => fetcher('/api/v1/countries/kenya') })
+  const { data: latestEvidence, isLoading: evidenceLoading, error: evidenceError } = useQuery<any[]>({ queryKey: ['latestEvidence', 'kenya'], queryFn: () => fetcher('/api/v1/evidence/list?country=kenya&limit=20') })
+  const { data: crawlerStatus, isLoading: crawlerLoading, error: crawlerError } = useQuery<any>({ queryKey: ['crawlerStatus'], queryFn: () => fetcher('/api/v1/crawler/status') })
+  const displayedOpportunities = topOp && topOp.length > 0 ? topOp : (kenyaProfile?.most_active_companies ?? [])
 
   return (
     <div>
@@ -90,6 +94,8 @@ export default function DashboardMain() {
                 <div className="h-4 bg-gray-800 rounded w-3/4 animate-pulse" />
                 <div className="h-4 bg-gray-800 rounded w-1/2 animate-pulse" />
               </div>
+            ) : evidenceError ? (
+              <div className="text-red-400">Error loading latest evidence</div>
             ) : latestEvidence && latestEvidence.length > 0 ? (
               <ul className="space-y-3">
                 {latestEvidence.slice(0, 10).map((e: any) => (
@@ -111,12 +117,14 @@ export default function DashboardMain() {
                 <div className="h-4 bg-gray-800 rounded w-3/4 animate-pulse" />
                 <div className="h-4 bg-gray-800 rounded w-1/2 animate-pulse" />
               </div>
-            ) : topOp && topOp.length > 0 ? (
+            ) : topError && displayedOpportunities.length === 0 ? (
+              <div className="text-red-400">Error loading top opportunities</div>
+            ) : displayedOpportunities.length > 0 ? (
               <ol className="list-decimal list-inside text-sm space-y-2">
-                {topOp.slice(0, 8).map((t: any) => (
-                  <li key={t.company_id} className="flex justify-between">
-                    <span>{t.company_id}</span>
-                    <span className="font-medium">{Math.round(t.total_score ?? t.score ?? 0)}</span>
+                {displayedOpportunities.slice(0, 8).map((t: any) => (
+                  <li key={t.company_id ?? t.id} className="flex justify-between">
+                    <span>{t.name ?? t.company_id ?? t.id}</span>
+                    <span className="font-medium">{t.total_score != null || t.score != null ? Math.round(t.total_score ?? t.score) : 'Kenya'}</span>
                   </li>
                 ))}
               </ol>
@@ -124,7 +132,12 @@ export default function DashboardMain() {
               <div className="text-gray-400">No opportunities discovered yet</div>
             )}
 
-            <div className="mt-4 text-xs text-gray-400">Crawler: {crawlerLoading ? 'loading' : crawlerStatus?.scheduler_running ? 'running' : 'idle'}</div>
+            <div className="mt-4 text-xs text-gray-400">Crawler: {crawlerLoading ? 'loading' : crawlerError ? 'error' : crawlerStatus?.scheduler_running ? 'running' : 'idle'}</div>
+
+            {/* Embed the fuller crawler dashboard for interactive inspection */}
+            <div className="mt-4">
+              <CrawlerDashboard />
+            </div>
           </div>
         </div>
       </motion.div>
