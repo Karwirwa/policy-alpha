@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: policy-alpha-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: DATABASE_URL
+        value: sqlite:////app/policy_alpha.db
+      - key: DEMO_SEED_ENABLED
+        value: "true"
+      - key: ENVIRONMENT
+        value: production

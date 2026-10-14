@@ -10,8 +10,11 @@ settings = get_settings()
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _WORKTREE_ROOT = _BACKEND_DIR.parent
 _DB_FILE = _WORKTREE_ROOT / "policy_alpha.db"
-_DEFAULT_DATABASE_URL = "sqlite:///./policy_alpha.db"
-DATABASE_URL = settings.database_url if settings.database_url != _DEFAULT_DATABASE_URL else f"sqlite:///{_DB_FILE.as_posix()}"
+DATABASE_URL = (
+    settings.database_url
+    if "database_url" in settings.model_fields_set
+    else f"sqlite:///{_DB_FILE.as_posix()}"
+)
 
 engine = create_engine(
     DATABASE_URL,

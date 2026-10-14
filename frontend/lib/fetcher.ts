@@ -5,7 +5,9 @@
  * import fetcher from 'frontend/lib/fetcher'
  * const data = await fetcher<MyType>('/items')
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000/api/v1')
 
 export async function fetcher<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith('http')
